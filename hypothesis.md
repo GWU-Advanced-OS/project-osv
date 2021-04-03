@@ -9,3 +9,8 @@
 7. What are the security properties of the system? How does it adhere to the principles for secure system design? What is the reference monitor in the system, and how does it provide complete mediation, tamperproof-ness, and how does it argue trustworthiness?
 8. What optimizations exist in the system? What are the "key operations" that the system treats as a fast-path that deserve optimization? How does it go about optimizing them?
 9. Subjective: What do you like, and what don't you like about the system? What could be done better were you to re-design it?
+
+
+## Hypothesis
+
+1. Most cloud systems run some general version of Linux. However, Linux can be very bloated with isolation features that the hypervisor already gives, especially when a user only wants to run a single application. OSv offers a way to boot a single linux application with less overhead and more memory to give to the application. 
