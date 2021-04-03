@@ -14,3 +14,5 @@
 ## Hypothesis
 
 1. Most cloud systems run some general version of Linux. However, Linux can be very bloated with isolation features that the hypervisor already gives, especially when a user only wants to run a single application. OSv offers a way to boot a single linux application with less overhead and more memory to give to the application. 
+
+2. The target domain of OSv is in the Cloud Computing and Virtual Machine realm. On a physical machine a single OS would handle isolation, between multiple untrusted applications. However, on the cloud the hypervisor handles a lot of the isolation. This means there is an unnesecary cost to provide this isolation which OSv takes advantage of. On the other hand, OSv would not be a good idea on a physical machine or something like a Desktop OS. We can only run a single application. 
