@@ -1,7 +1,7 @@
 ## 1. Design and Implementation
-## 2. Applications & Build Process
+## 2. Applications & Build Process (Graham)
 
-### Applications
+### Applications 
 In this section I will dive deep into a variety of applications that can be run with OSv, and if there is necessary glue that needs to be used for each application to run. I will also look to see how different application have different needs from OSv and if that effects their build process. 
 
 #### 1. ImageMagick
