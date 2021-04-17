@@ -1,5 +1,170 @@
 ## 1. Design and Implementation
-## 2.
+## 2. Applications & Build Process
+
+### Applications
+In this section I will dive deep into a variety of applications that can be run with OSv, and if there is necessary glue that needs to be used for each application to run. I will also look to see how different application have different needs from OSv and if that effects their build process. 
+
+#### 1. ImageMagick
+
+- ImageMagick is a C image manipulation library. It has the ability to convert images into different sizes and add special effects to images.
+
+- It is very important to add as least as possible to ImageMagick, because the libraries are very old and have undergone extensive testing. 
+
+##### Building ImageMagick
+
+In order to build ImageMagick we can look at the [build file](https://github.com/cloudius-systems/osv-apps/blob/43e5d7d35c91048164c7cd58750f15dc53ddef12/ImageMagick/Makefile) that we are not actually building from source, but instead building from a library that is already pre installed on our computer. We can notice 2 distinct steps: 
+
+- Creating the usr manifest
+- Converting the library to a shared object that can be booted in OSv
+
+##### Creating a shared object
+Creating a shared object from a library is actually quite complex. From the [convert.c](https://github.com/cloudius-systems/osv-apps/blob/43e5d7d35c91048164c7cd58750f15dc53ddef12/ImageMagick/convert.c#L4) file that is provided we can see that we are essentially loading all that we can from the library into the compiled c file. We can see the compilation command as 
+
+```bash
+	cc -shared -o convert.so -fPIC `pkg-config --cflags ImageMagick` convert.c `pkg-config --libs MagickWand`
+```
+
+To me it looks like we are essentially compiling the library into some position independent code which is then used as a shared object. 
+
+From this we can see what we have to do in order to compile something like a library that a host machine has into a Uni-kernel
+
+#### 2. XApps 
+- XApps are essentially just application that use the windows manager. We can think of this as widgets like a desktop clock or a calculator. 
+
+- Xapps are special in this case because they require the use of the display of the host machine. We will explore the work that needs to be done in order to specify how to do this. 
+
+##### Building our XApps
+In order to get the object to build into OSv it seems we only need to specify the path that our apps would normally be on the host machine: 
+
+```Makefile
+xclock_path := $(shell which xclock)
+xeyes_path := $(shell which xeyes)
+xlogo_path := $(shell which xlogo)
+```
+
+##### Running our XApps
+Although it seems pretty easy to build our XApps, we need to have some special considerations when running our XApps in our Unikernel. Our Unikernel will use [TCP](https://en.wikipedia.org/wiki/Transmission_Control_Protocol) in order to communicate with our host machine and display our XApps. 
+
+When we are actually running our App we use the following code: 
+
+```python
+common_prefix = '--env=XAUTHORITY=/.Xauthority --env=DISPLAY=192.168.122.1:0.0'
+
+default = api.run(cmdline='%s /xclock -digital -fg red -bg black -update 1 -face "Arial Black-25:bold"' % common_prefix)
+```
+
+Here we can see that we get our permissions from the host machine locating in the XAuth directory. We also see that we set a display, this is the port we are sending our packets to in order to display our applications. We can see this is our machine because we are using `192` which means the computer is in our network. 
+
+As we can see from running XApps each application can have its own build needs which can lead to each Uni-kernel build getting more and more complex. 
+
+
+#### 3. OSv-Memcached 
+- Memcached is a memory caching system for small pieces of data (like in a browser). Memcached can prevent unnecessary database queries.
+
+- Memcached is one of OSv's bragging points. It is focused on memory and key value stores which OSv does really fast as it only has to deal with one address space as well as several other optimizations. 
+
+##### 2 types of Memcached
+We have 2 options when deciding to build Memcached with OSv. 
+- Default Memcached source code
+
+- Specialized Memcached (OSv Memcached) which is a lot faster. 
+
+In this Memcached we examine how we can achieve faster operations by taking advantage of being in a Uni kernel. Then we will examine how we build this specialized Memcached. 
+
+##### The Shrinker API 
+Shrinker is something that OSv implements beyond the Linux API. Essentially Shrinker takes advantage that we are allowed truly dynamic memory on a Uni-kernel. On a regular Operating System most systems like a dynamic cache must statically determine their size before hand. This can be limiting as when there are boosts of memory. Sometimes we do not have enough cache entries and sometimes we have allocated too much memory. 
+
+The Shrinker API fixes this issue by allowing us to dynamically increase or decrease our memory. We are allowed to increase our memory to the entire memory of the system or image. 
+
+#### Using the Shrinker API
+
+In the OSv Memcached source we can see we use the [API](https://github.com/vladzcloudius/osv-memcached/blob/master/memcached-udp.cc#L297). The first thing that we do is grab the Shrinker lock: 
+
+```c
+WITH_LOCK(_locked_shrinker) {
+
+```
+
+Once we have the lock we can simply update our cache sizes: 
+
+```c
+it->second.lru_link->mem_size = memory_needed;
+```
+
+This way we can be way more efficient with our caches and dynamically size them based on our needs. 
+
+#### The OSv build process
+The build process for OSv is quite complex. From the build file we can see that we have a monstrous 2169 line makefile. However, we can break down the build process in two simple steps. 
+
+- Building the kernel
+- Building and fusing our application
+
+##### Building the kernel
+In order to investigate what is going on to build the kernel we will look at this [Makefile](https://github.com/cloudius-systems/osv/blob/master/Makefile). We can see the first thing we want to do is detect the architecture so we can build everything 
+```Makefile
+
+detect_arch = $(word 1, $(shell { echo "x64        __x86_64__";  \
+                                  echo "aarch64    __aarch64__"; \
+                       } | $1 -E -xc - | grep ' 1$$'))
+
+```
+
+We then set an output directory. All of our compiled code will go into a single directory: 
+
+```Makefile
+out = build/$(mode).$(arch)
+```
+
+Then we need to get the correct C++ headers to essentially build musl libc and the core of the kernel: 
+
+```Makefile
+CXX_INCLUDES = $(shell $(CXX) -E -xc++ - -v </dev/null 2>&1 | awk '/^End/ {exit} /^ .*c\+\+/ {print "-isystem" $$0}')
+```
+
+We also set up some interesting parameters where our Uni-kernel will actually be in memory and how big our TLS size our applications will have.
+
+```Makefile
+kernel_base := 0x40080000
+kernel_vm_base := $(kernel_base)
+app_local_exec_tls_size := 0x40
+```
+
+We then compile everything together using shared libraries 
+
+```Makefile
+libgcc_eh.a := $(shell $(CC) -print-file-name=libgcc_eh.a)
+
+###########################
+
+$(objects:%=$(out)/%) $(drivers:%=$(out)/%) $(out)/arch/$(arch)/boot.o $(out)/loader.o $(out)/runtime.o: COMMON += -fno-pie
+```
+
+Through a long process of building library files is how we build our kernel. 
+
+##### Fusing our application
+We then have to fuse our application with our Unikernel. In order to investigate this we will look through [module.py](https://github.com/cloudius-systems/osv/blob/master/scripts/module.py). 
+
+From this we can see there are two steps to our build process: 
+
+- Adding our application and its manifest to a list 
+
+- Compiling our module
+
+
+##### Compiling our module
+When we compile modules in our kernel we have to use make_modules method in [module.py](https://github.com/cloudius-systems/osv/blob/master/scripts/module.py). 
+
+```python
+def make_modules(modules, args):
+    for module in modules:
+        if os.path.exists(os.path.join(module.local_path, 'Makefile')):
+            if subprocess.call(make_cmd('module', j=args.j, jobserver=args.jobserver_fds),
+                               shell=True, cwd=module.local_path):
+                raise Exception('make failed for ' + module.name)
+```
+
+Here we simply call the Makefile in the directory of where the application is.
+
 ## 3. Security (Sarah)
 
 The following details the information we have found with regard to the security of OSv and a limited analysis.

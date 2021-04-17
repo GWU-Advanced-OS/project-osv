@@ -1,0 +1,3 @@
+[submodule "osv"]
+	path = osv
+	url = https://github.com/cloudius-systems/osv.git
