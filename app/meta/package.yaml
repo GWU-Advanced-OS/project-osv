@@ -1,8 +1,0 @@
-name: java-example
-title: Java Example
-author: Anonymous
-version: "1.0"
-require:
-- osv.openjdk10-java-base
-- osv.run-java
-created: "2021-04-07T12:17:00-04:00"
