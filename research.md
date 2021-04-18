@@ -1,6 +1,10 @@
 ## 1. Design and Implementation (Cuidi Wei)
-### 1. Memory
-OSv runs an application with the kernel and threads sharing a single space. It means the threads and kernel use the same tables, which make system calls as efficient as function calls and also make context switches quicker. When OSv is going to run an application, it will create the share space.
+
+### 1. Virtual Memory
+
+At first, OSv doesn't have multiple spaces. OSv runs an application with the kernel and threads sharing a single space. It means the threads and kernel use the same tables, which make system calls as efficient as function calls and also make context switches quicker. Also, because OSv share a single address space, it doesn't maintain different permissions for the kernel and applications. Therefore, the isolation is managed by the hypervisor.
+According to the following part of code, when OSv is going to run an application, it will create the share space. This way achieves simpler code, better performance and also reduces the frequency of TLB misses.
+
 ```c
 shared_app_t application::run_and_join(const std::string& command,
                       const std::vector<std::string>& args,
@@ -16,11 +20,11 @@ shared_app_t application::run_and_join(const std::string& command,
     return app;
 }
 ```
-Also, OSv uses the huge page so that it could reduce the number of TLB misses.
-Moreover, the OSv couldn’t do the isolation, so the isolation is managed by the hypervisor.
 
 ### 2. Lock free
+
 In lockfree/queue-mpsc.hh, OSv designed the lock free queue. They assumed that only a single pop() will be called at the same time, while push()s could be run concurrently. The push() code is like the following. Because only the head of the pushlist is replaced, before changing the head, they will check whether the head is still what they used in item-next, which guarantee that changing is correct. 
+
 ```c
 inline void push(LT* item)
     {
@@ -38,8 +42,11 @@ inline void push(LT* item)
         } while (!pushlist.compare_exchange_weak(old, item, std::memory_order_release));
     }
 ```
+
 ### 3. Network Channels
-OSv provides a new network channel so that only one thread could access the data which simplifies the locking. Most of TCP/IP is moved from kernel to the application level, while a tiny packet classifier is running in an interrupt handling thread. Therefore, it could reduce the run time and context switches overhead. The code is implemented in net_channel.cc. 
+
+OSv provides a new network channel so that only one thread could access the data which simplifies the locking. Most of TCP/IP is moved from kernel to the application level, while a tiny packet classifier is running in an interrupt handling thread. Therefore, it could reduce the run time and context switches overhead. The code is implemented in net_channel.cc. It shows that after finding the ipv4 packet which has the same item in the hash table, it will use the pre-channel and wake it up. 
+
 ```c
 bool classifier::post_packet(mbuf* m)
 {
@@ -57,13 +64,22 @@ bool classifier::post_packet(mbuf* m)
     return false;
 }
 ```
-After finding the ipv4 packet which has the same item in the hash table, it will use the pre-channel and wake it up. 
+
 
 ### 4. Filesystem
+
 OSv maily use ZFS as the major filesystem. Because ZFS file systems are not constrained to specific devices, they have many advantages including easy to create and could grow automatically within the space which is allocated to the storage pool.
 
 ### 5. Core of OSv
+
+OSv is designed to use the scheduler which runs different queues on each CPU. Therefore, almost all scheduling operations do not need coordination among CPUs and the lock-free algorithms when a thread must be moved from one CPU to another.
+
+[Lock-free design is just one example of the kind of thing that we mean when talking about how OSv is “designed for the cloud”. Because we can’t assume that a CPU is always running or available to run, the low-level design of the OS needs to be cloud-aware to prevent performance degradation and resource waste.](http://osv.io/spinlock-free)
+
+[OSv shedule has global fairness and is easy to compute](http://osv.io/design). Each task has a measure of runtime it receives from the scheduler. The scheduler picks the runnable thread with smallest R, and runs it until some other thread has a smaller R. 
+
 Beside of keeping each CPU has its own separate run-queue, which removes the lock mechanism, OSv uses a load balancer thread on each CPU so that it could keep the run queue in one CPU have similar tasks as others. If the queue of one CPU is longer than others', the load balancer thread will pick one thread from this CPU and wakes it up on the remote CPU. The more detailed implementation about schedule is [here](https://github.com/cloudius-systems/osv/blob/master/core/sched.cc#L724-L771):
+
 ```c
 // This CPU is temporarily running one extra thread (this thread),
         // so don't migrate a thread away if the difference is only 1.
@@ -76,7 +92,8 @@ WITH_LOCK(irq_lock) {
 	min->send_wakeup_ipi();
 }
 ```
-OSv uses ELF which calls functions from Linux without incurring special call overhead, nor the cost of user-to-kernel copying. Also, the core of OSv has OSv’s dynamic linker, loader, thread scheduler, memory management and synchronization mechanisms such as mutex and RCU, virtual-hardware drivers and more. 
+
+OSv uses ELF dynamic linker to run some desired functions from Linux. When functions from Linux are called, ELF could resolve those calls and linked them to the Linux. Even those functions call Linux, they doesn't incur special call overhead, nor the cost of user-to-kernel copying. Also, the core of OSv has loader, thread scheduler, memory management and synchronization mechanisms such as mutex and RCU, virtual-hardware drivers and more. 
 
 ## 2. Applications & Build Process (Graham)
 
