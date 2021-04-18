@@ -17,7 +17,7 @@ shared_app_t application::run_and_join(const std::string& command,
 }
 ```
 Also, OSv uses the huge page so that it could reduce the number of TLB misses.
-In this case, the OSv couldn’t do the isolation. The isolation is managed by the hypervisor.
+Moreover, the OSv couldn’t do the isolation, so the isolation is managed by the hypervisor.
 
 ### 2. Lock free
 In lockfree/queue-mpsc.hh, OSv designed the lock free queue. They assumed that only a single pop() will be called at the same time, while push()s could be run concurrently. The push() code is like the following. Because only the head of the pushlist is replaced, before changing the head, they will check whether the head is still what they used in item-next, which guarantee that changing is correct. 
