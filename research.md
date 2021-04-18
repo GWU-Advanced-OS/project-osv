@@ -364,3 +364,4 @@ Summary of [[1](https://github.com/GWU-Advanced-OS/project-osv/blob/38e574e131b1
 
 1. [A Security Perspective on Unikernels](https://github.com/GWU-Advanced-OS/project-osv/blob/38e574e131b138e70942dd647a3fe22a56f58bc4/research/1911.06260.pdf)
 2. [OSv Document](http://osv.io/design)
+3. [OSv—Optimizing the Operating System for Virtual Machines](https://www.usenix.org/system/files/conference/atc14/atc14-paper-kivity.pdf)
