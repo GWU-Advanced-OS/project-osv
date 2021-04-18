@@ -63,7 +63,19 @@ After finding the ipv4 packet which has the same item in the hash table, it will
 OSv maily use ZFS as the major filesystem. Because ZFS file systems are not constrained to specific devices, they have many advantages including easy to create and could grow automatically within the space which is allocated to the storage pool.
 
 ### 5. Core of OSv
-Beside of keeping each CPU has its own separate run-queue, which removes the lock mechanism, OSv uses a load balancer thread on each CPU so that it could keep the run queue in one thread have similar tasks as others. 
+Beside of keeping each CPU has its own separate run-queue, which removes the lock mechanism, OSv uses a load balancer thread on each CPU so that it could keep the run queue in one CPU have similar tasks as others. If the queue of one CPU is longer than others', the load balancer thread will pick one thread from this CPU and wakes it up on the remote CPU. The more detailed implementation about schedule is [here](https://github.com/cloudius-systems/osv/blob/master/core/sched.cc#L724-L771):
+```c
+// This CPU is temporarily running one extra thread (this thread),
+        // so don't migrate a thread away if the difference is only 1.
+        if (min->load() >= (load() - 1)) {
+            continue;
+        }
+WITH_LOCK(irq_lock) {
+	... ...
+	... ...
+	min->send_wakeup_ipi();
+}
+```
 OSv uses ELF which calls functions from Linux without incurring special call overhead, nor the cost of user-to-kernel copying. Also, the core of OSv has OSv’s dynamic linker, loader, thread scheduler, memory management and synchronization mechanisms such as mutex and RCU, virtual-hardware drivers and more. 
 
 ## 2. Applications & Build Process (Graham)
