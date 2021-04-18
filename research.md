@@ -1,4 +1,23 @@
 ## 1. Design and Implementation (Cuidi Wei)
+### 1. Memory
+OSv runs an application with the kernel and threads sharing a single space. It means the threads and kernel use the same tables, which make system calls as efficient as function calls and also make context switches quicker. When OSv is going to run an application, it will create the share space.
+```c
+shared_app_t application::run_and_join(const std::string& command,
+                      const std::vector<std::string>& args,
+                      bool new_program,
+                      const std::unordered_map<std::string, std::string> *env,
+                      waiter* setup_waiter,
+                      const std::string& main_function_name,
+                      std::function<void()> post_main)
+{
+    auto app = std::make_shared<application>(command, args, new_program, env,
+                                             main_function_name, post_main);
+    app->start_and_join(setup_waiter);
+    return app;
+}
+```
+Also, OSv uses the huge page so that it could reduce the number of TLB misses.
+In this case, the OSv couldn’t do the isolation. The isolation is managed by the hypervisor.
 
 ## 2. Applications & Build Process (Graham)
 
