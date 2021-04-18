@@ -19,6 +19,53 @@ shared_app_t application::run_and_join(const std::string& command,
 Also, OSv uses the huge page so that it could reduce the number of TLB misses.
 In this case, the OSv couldn’t do the isolation. The isolation is managed by the hypervisor.
 
+### 2. Lock free
+In lockfree/queue-mpsc.hh, OSv designed the lock free queue. They assumed that only a single pop() will be called at the same time, while push()s could be run concurrently. The push() code is like the following. Because only the head of the pushlist is replaced, before changing the head, they will check whether the head is still what they used in item-next, which guarantee that changing is correct. 
+```c
+inline void push(LT* item)
+    {
+        // We set up item to be the new head of the pushlist, pointing to the
+        // rest of the existing push list. But while we build this new head
+        // node, another concurrent push might have pushed its own items.
+        // Therefore we can only replace the head of the pushlist with a CAS,
+        // atomically checking that the head is still what we set in
+        // item->next, and changing the head.
+        // Note that while we have a loop here, it is lock-free - if one
+        // competing pusher is paused, the other one can make progress.
+        LT *old = pushlist.load(std::memory_order_relaxed);
+        do {
+            item->next = old;
+        } while (!pushlist.compare_exchange_weak(old, item, std::memory_order_release));
+    }
+```
+### 3. Network Channels
+OSv provides a new network channel so that only one thread could access the data which simplifies the locking. Most of TCP/IP is moved from kernel to the application level, while a tiny packet classifier is running in an interrupt handling thread. Therefore, it could reduce the run time and context switches overhead. The code is implemented in net_channel.cc. 
+```c
+bool classifier::post_packet(mbuf* m)
+{
+    WITH_LOCK(osv::rcu_read_lock) {
+        if (auto nc = classify_ipv4_tcp(m)) {
+            log_packet_in(m, NETISR_ETHER);
+            if (!nc->push(m)) {
+                return false;
+            }
+            // FIXME: find a way to batch wakes
+            nc->wake();
+            return true;
+        }
+    }
+    return false;
+}
+```
+After finding the ipv4 packet which has the same item in the hash table, it will use the pre-channel and wake it up. 
+
+### 4. Filesystem
+OSv maily use ZFS as the major filesystem. Because ZFS file systems are not constrained to specific devices, they have many advantages including easy to create and could grow automatically within the space which is allocated to the storage pool.
+
+### 5. Core of OSv
+Beside of keeping each CPU has its own separate run-queue, which removes the lock mechanism, OSv uses a load balancer thread on each CPU so that it could keep the run queue in one thread have similar tasks as others. 
+OSv uses ELF which calls functions from Linux without incurring special call overhead, nor the cost of user-to-kernel copying. Also, the core of OSv has OSv’s dynamic linker, loader, thread scheduler, memory management and synchronization mechanisms such as mutex and RCU, virtual-hardware drivers and more. 
+
 ## 2. Applications & Build Process (Graham)
 
 ### Applications 
