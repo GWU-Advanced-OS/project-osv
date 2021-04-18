@@ -1,4 +1,5 @@
-## 1. Design and Implementation(Cuidi Wei)
+## 1. Design and Implementation (Cuidi Wei)
+
 ## 2. Applications & Build Process (Graham)
 
 ### Applications 
