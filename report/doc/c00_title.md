@@ -1,6 +1,6 @@
 ---
 title: "OSv Research Report"
-author: [Graham Schock, ]
+author: [Graham Schock, Sarah Morin]
 keywords: [Operating Systems]
 subtitle: "2021-04-22"
 titlepage: true
