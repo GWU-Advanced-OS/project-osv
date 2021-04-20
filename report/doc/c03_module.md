@@ -77,4 +77,5 @@ WITH_LOCK(irq_lock) {
 }
 ```
 
+
 Ax explained above, when OSv calls down to the data, it shares a single address space and avoids context switches. Also, by using the “channel”, OSv saves much processes in the traditional networking stack. OSv avoids the socket locks and TCP/IP locks. According to the performance result, the network stack’s performance for TCP and UDP consistently outperforms Linux and latency is about 25% less than Linux. Also, the context switching (thread switching) is much faster in OSv than in Linux - between 3 and 10 times faster.
