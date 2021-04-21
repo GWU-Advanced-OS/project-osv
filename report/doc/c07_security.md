@@ -12,7 +12,7 @@ There are two main types of unikernels: ***clean-slate*** and ***legacy***. OSv 
 
 Common vulnerabilities specific to unikernels include:
 
-- **Lack of Address Space Layout Randomization** TODO
+- **Lack of Address Space Layout Randomization** ASLR prevents attacks which rely on knowing the layout of memory during runtime. For example, knowing the exact location of a library or program at runtime gives an attacker ample opportunity to run an exploit payload. ASLR, as the name implies, randomizes the address space layout to prevent the use of such attacks.
 - **Single Protection Ring** Large systems utilize protection rings to specify privilege classes of principals. Unikernels often provide a single protection ring, meaning the kernel and software code run in the same protection domain, i.e. with the same privileges. 
 - **Absence of Guard Pages** Guard pages are sections of unmapped memory placed betweeen allocations used to trigger segmentation faults. Without guard pages, the system is extremely vulnerable to memory related attacks.
 - **Inability to Debug** It is often extremely difficult, if not impossible, to debug a unikernel while it is running. If the system is compromised or facing incorrect behavior, it likely needs to be destroyed and rebuilt.
