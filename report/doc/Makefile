@@ -6,7 +6,7 @@ PANDOC_FLAGS=--toc --number-sections --listings --template=$(RES)/eisvogel.tex -
 VERSION=$(shell grep subtitle c00_*.md | awk -F 'Version ' '{print $$2}' | sed 's/"//')
 
 # These are separated so that we can make a lot of changes without modifying the viewable .pdf in git.
-NAME        =../../project_osv_report.md
+NAME        =../../project_osv_report
 PDFOUTPUT   =$(NAME).pdf
 PDFVERSIONED=$(NAME)_v$(VERSION).pdf
 
