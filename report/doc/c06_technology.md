@@ -1,3 +1,5 @@
+\newpage
+
 # Technology
 
 The cloud design allows OSv to simplify the stack, both looking down (towards the hardware) and looking up (towards the application).
